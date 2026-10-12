@@ -1,0 +1,286 @@
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    CallbackQuery
+)
+
+# ---------------- CONFIGS ----------------
+BOT_TOKEN = "8964275486:AAFwFmb8Gnsc5l5Yf6D082QxaunpdWyxgXo"
+OWNER_USERNAME = "@LEON3H"
+CARD_NUMBER = "6219861458273330"
+CARD_HOLDER = "سید حسین"
+
+ADMIN_IDS = [] 
+
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(storage=MemoryStorage())
+
+class UserStates(StatesGroup):
+    waiting_for_receipt = State()
+
+class AdminStates(StatesGroup):
+    waiting_for_config_to_send = State()
+
+# ---------------- KEYBOARDS ----------------
+
+def owner_panel_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📊 آمار ربات", callback_data="admin_stats"),
+                InlineKeyboardButton(text="🚫 مسدودیت", callback_data="admin_block"),
+                InlineKeyboardButton(text="✉️ پیام به کاربر", callback_data="admin_send_user_msg")
+            ],
+            [
+                InlineKeyboardButton(text="➕ افزودن کانفیگ تستی", callback_data="admin_add_test_config")
+            ],
+            [
+                InlineKeyboardButton(text="⚙️ تنظیمات کلی", callback_data="admin_settings"),
+                InlineKeyboardButton(text="🚨 مدیران", callback_data="admin_managers")
+            ],
+            [
+                InlineKeyboardButton(text="🔘 کیبورد ها", callback_data="admin_keyboards"),
+                InlineKeyboardButton(text="👥 منوی کاربر", callback_data="user_main_menu"),
+                InlineKeyboardButton(text="🎁 کد هدیه", callback_data="admin_gift_code")
+            ],
+            [
+                InlineKeyboardButton(text="📋 شناسه فرد", callback_data="admin_user_info"),
+                InlineKeyboardButton(text="💳 کسر و اضافه", callback_data="admin_balance_mod")
+            ],
+            [
+                InlineKeyboardButton(text="🔒 کانالها", callback_data="admin_channels"),
+                InlineKeyboardButton(text="♻️ پاکسازی", callback_data="admin_cleanup")
+            ],
+            [
+                InlineKeyboardButton(text="📢 فوروارد همگانی", callback_data="admin_fwd_all"),
+                InlineKeyboardButton(text="📦 ارسال همگانی", callback_data="admin_send_all")
+            ]
+        ]
+    )
+
+def user_main_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🛒 خرید کانفیگ", callback_data="user_buy_config"),
+                InlineKeyboardButton(text="💳 افزایش موجودی", callback_data="user_add_balance")
+            ],
+            [
+                InlineKeyboardButton(text="👤 حساب کاربری", callback_data="user_account"),
+                InlineKeyboardButton(text="🎁 کد هدیه", callback_data="user_gift")
+            ],
+            [
+                InlineKeyboardButton(text="📞 پشتیبانی", callback_data="user_support"),
+                InlineKeyboardButton(text="❓ راهنما", callback_data="user_help")
+            ]
+        ]
+    )
+
+def config_plans_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔹 ۱۰ گیگ | یک‌ماهه — ۲۰,۰۰۰ تومان", callback_data="plan_10gb")],
+            [InlineKeyboardButton(text="🔹 ۲۵ گیگ | یک‌ماهه — ۴۵,۰۰۰ تومان", callback_data="plan_25gb")],
+            [InlineKeyboardButton(text="🔥 ۵۰ گیگ | یک‌ماهه — ۹۰,۰۰۰ تومان", callback_data="plan_50gb")],
+            [InlineKeyboardButton(text="🔹 ۷۵ گیگ | یک‌ماهه — ۱۴۰,۰۰۰ تومان", callback_data="plan_75gb")],
+            [InlineKeyboardButton(text="⭐ ۱۰۰ گیگ | یک‌ماهه — ۱۷۰,۰۰۰ تومان", callback_data="plan_100gb")],
+            [InlineKeyboardButton(text="🏛️ منوی اصلی", callback_data="user_main_menu")]
+        ]
+    )
+
+# ---------------- HANDLERS ----------------
+
+@dp.message(Command("start"))
+async def start_handler(message: Message):
+    user_id = message.from_user.id
+    
+    if message.from_user.username and message.from_user.username.lower() == "leon3h":
+        if user_id not in ADMIN_IDS:
+            ADMIN_IDS.append(user_id)
+        
+        await message.answer(
+            "🎓 **پنل مدیریت ربات vexon**\n\n🎓 خوشامدید ادمین عزیز :",
+            reply_markup=owner_panel_keyboard(),
+            parse_mode="Markdown"
+        )
+    else:
+        await message.answer(
+            "👋 به ربات کانفیگ‌دهی vexon خوش آمدید.\n\n💎 کیفیت و اتصال مطمئن\nلطفاً یکی از گزینه‌های زیر را انتخاب کنید:",
+            reply_markup=user_main_keyboard()
+        )
+
+@dp.callback_query(F.data == "user_main_menu")
+async def show_user_menu(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "👋 به منوی اصلی ربات vexon خوش آمدید:",
+        reply_markup=user_main_keyboard()
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data == "user_buy_config")
+async def buy_config_handler(callback: CallbackQuery):
+    await callback.message.edit_text(
+        "📦 **تعرفه فروش کانفیگ VPN (vexon)**\n\nلطفاً پلن مورد نظر خود را انتخاب کنید:",
+        reply_markup=config_plans_keyboard(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("plan_"))
+async def select_specific_plan(callback: CallbackQuery, state: FSMContext):
+    plans_dict = {
+        "plan_10gb": "۱۰ گیگ | یک‌ماهه (۲۰,۰۰۰ تومان)",
+        "plan_25gb": "۲۵ گیگ | یک‌ماهه (۴۵,۰۰۰ تومان)",
+        "plan_50gb": "۵۰ گیگ | یک‌ماهه (۹۰,۰۰۰ تومان)",
+        "plan_75gb": "۷۵ گیگ | یک‌ماهه (۱۴۰,۰۰۰ تومان)",
+        "plan_100gb": "۱۰۰ گیگ | یک‌ماهه (۱۷۰,۰۰۰ تومان)"
+    }
+    
+    selected_plan = plans_dict.get(callback.data, "نامشخص")
+    
+    text = (
+        f"🏷️ **پلن انتخابی:** {selected_plan}\n\n"
+        f"💳 **اطلاعات واریز:**\n"
+        f"📌 شماره کارت: `{CARD_NUMBER}`\n"
+        f"👤 به نام: {CARD_HOLDER}\n\n"
+        f"📸 لطفاً پس از واریز وجه، **تصویر رسید (فیش واریزی)** خود را همینجا ارسال کنید."
+    )
+    
+    await callback.message.edit_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏛️ بازگشت به منوی خرید", callback_data="user_buy_config")]
+        ])
+    )
+    await state.set_state(UserStates.waiting_for_receipt)
+    await callback.answer()
+
+@dp.callback_query(F.data == "user_add_balance")
+async def add_balance_handler(callback: CallbackQuery, state: FSMContext):
+    text = (
+        f"💳 **افزایش موجودی حساب**\n\n"
+        f"لطفاً مبلغ مورد نظر را به کارت زیر واریز کنید:\n"
+        f"📌 شماره کارت: `{CARD_NUMBER}`\n"
+        f"👤 به نام: {CARD_HOLDER}\n\n"
+        f"📸 سپس عکس فیش واریزی را ارسال نمایید تا حساب شما شارژ شود."
+    )
+    await callback.message.edit_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏛️ بازگشت", callback_data="user_main_menu")]
+        ])
+    )
+    await state.set_state(UserStates.waiting_for_receipt)
+    await callback.answer()
+
+@dp.message(UserStates.waiting_for_receipt, F.photo)
+async def process_receipt(message: Message, state: FSMContext):
+    user_id = message.from_user.id
+    username = f"@{message.from_user.username}" if message.from_user.username else "ندارد"
+    full_name = message.from_user.full_name
+    photo_id = message.photo[-1].file_id
+
+    await state.clear()
+    await message.answer("✅ رسید شما با موفقیت ثبت شد و برای ادمین ارسال گردید. پس از تایید، کانفیگ برای شما ارسال می‌شود.")
+
+    admin_markup = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ تایید و ارسال کانفیگ", callback_data=f"approve_{user_id}"),
+            InlineKeyboardButton(text="❌ رد رسید", callback_data=f"reject_{user_id}")
+        ]
+    ])
+
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_photo(
+                chat_id=admin_id,
+                photo=photo_id,
+                caption=f"📥 **رسید جدید دریافت شد!**\n\n👤 کاربر: {full_name} ({username})\n🆔 شناسه عددی: `{user_id}`",
+                parse_mode="Markdown",
+                reply_markup=admin_markup
+            )
+        except Exception as e:
+            logging.error(f"Error sending receipt to admin {admin_id}: {e}")
+
+@dp.callback_query(F.data == "user_support")
+async def support_handler(callback: CallbackQuery):
+    await callback.message.edit_text(
+        f"📞 جهت ارتباط مستقیم با پشتیبانی ربات vexon می‌توانید به آیدی زیر پیام دهید:\n\n👉 {OWNER_USERNAME}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🏛️ بازگشت", callback_data="user_main_menu")]
+        ])
+    )
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("approve_"))
+async def approve_receipt(callback: CallbackQuery, state: FSMContext):
+    target_user_id = int(callback.data.split("_")[1])
+    
+    await callback.message.edit_caption(
+        caption=f"{callback.message.caption}\n\n✅ **این رسید تایید شد.**\nحالا لطفاً متن/لینک کانفیگ را ارسال کنید تا برای کاربر ارسال شود.",
+        parse_mode="Markdown"
+    )
+    
+    await state.update_data(target_user=target_user_id)
+    await state.set_state(AdminStates.waiting_for_config_to_send)
+    await callback.answer()
+
+@dp.message(AdminStates.waiting_for_config_to_send)
+async def send_config_to_user(message: Message, state: FSMContext):
+    data = await state.get_data()
+    target_user_id = data.get("target_user")
+    
+    config_text = message.text
+    
+    try:
+        await bot.send_message(
+            chat_id=target_user_id,
+            text=f"🎉 **سفارش شما در vexon تایید شد!**\n\n🔑 کانفیگ شما:\n`{config_text}`",
+            parse_mode="Markdown"
+        )
+        await message.answer(f"✅ کانفیگ با موفقیت برای کاربر `{target_user_id}` ارسال شد.", parse_mode="Markdown")
+    except Exception as e:
+        await message.answer(f"❌ خطا در ارسال پیام به کاربر: {e}")
+    
+    await state.clear()
+
+@dp.callback_query(F.data.startswith("reject_"))
+async def reject_receipt(callback: CallbackQuery):
+    target_user_id = int(callback.data.split("_")[1])
+    
+    await callback.message.edit_caption(
+        caption=f"{callback.message.caption}\n\n❌ **این رسید رد شد.**",
+        parse_mode="Markdown"
+    )
+    
+    try:
+        await bot.send_message(
+            chat_id=target_user_id,
+            text="❌ رسید واریزی شما توسط ادمین تایید نشد. در صورت وجود مشکل با پشتیبانی در ارتباط باشید."
+        )
+    except Exception as e:
+        logging.error(f"Error notifying user: {e}")
+        
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("admin_"))
+async def admin_buttons_placeholder(callback: CallbackQuery):
+    await callback.answer("⚙️ این بخش در دستور کار پنل مدیریت قرار دارد.", show_alert=True)
+
+async def main():
+    print("🤖 Vexon Bot is running...")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
